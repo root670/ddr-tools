@@ -6,22 +6,36 @@
 #include "lodepng/lodepng.h"
 #include "pngquant/libimagequant.h"
 
+// This is a modified TIM2 image data header
+// Reference: http://wiki.xentax.com/index.php/TM2_TIM2
 typedef struct tcbHeader {
+    // 0x00
     char magic[4];
     char padding[12];
 
     // 0x10
     uint32_t totalLength;
     uint32_t paletteLength;
-    uint32_t dataLength;
-    uint32_t unk3;
+    uint32_t imageDataLength;
+    uint16_t headerLength;
+    uint16_t numPaletteEntries;
 
     // 0x20
-    uint16_t unk4;
-    uint16_t imageType;
+    uint8_t imageType;
+    uint8_t numMipmaps;
+    uint8_t paletteType;
+    uint8_t bitsPerPixel;
     uint16_t width;
     uint16_t height;
-    uint8_t extra[0x28];
+    uint64_t gsTEX0;
+
+    // 0x30
+    uint64_t gsTEX1;
+    uint32_t gsRegs;
+    uint32_t gsTexClut;
+
+    // 0x40
+    uint8_t userData[16];
 } tcbHeader_t;
 
 typedef struct rgbaImageData {
@@ -190,7 +204,7 @@ int tcb_to_rgba(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
 
     header = (tcbHeader_t*) tcbData;
     image = (uint8_t*) (tcbData + 0x50);
-    palette = (uint32_t*) (tcbData + header->dataLength + 0x50);
+    palette = (uint32_t*) (tcbData + header->imageDataLength + 0x50);
 
     if(strncmp(header->magic, "TCB\0", 4))
     {
@@ -216,7 +230,7 @@ int tcb_to_rgba(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
         palette = newPalette;
     }
 
-    if(header->imageType == 0x05) // 8bpp
+    if(header->paletteType == 0x05) // 8bpp
     {
         for(int i = 0; i < (header->width * header->height); i++)
         {
@@ -229,7 +243,7 @@ int tcb_to_rgba(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
             imageData->rgba[i] = palette[index] | (alpha << 24); // 255 alpha channel
         }
     }
-    else if(header->imageType == 0x04) // 4bpp
+    else if(header->paletteType == 0x04) // 4bpp
     {
         for(int i = 0; i < (header->width * header->height); i++)
         {
@@ -276,7 +290,7 @@ int rgba_to_tcb(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
 
     header = (tcbHeader_t*) tcbData;
     image = (uint8_t*) (tcbData + 0x50);
-    palette = (uint32_t*) (tcbData + header->dataLength + 0x50);
+    palette = (uint32_t*) (tcbData + header->imageDataLength + 0x50);
 
     if(header->width != imageData->width || header->height != imageData->height)
     {
@@ -285,13 +299,13 @@ int rgba_to_tcb(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
     }
 
     liq_attr *attr = liq_attr_create();
-    if(header->imageType == 0x04) // 4-bit color
+    if(header->paletteType == 0x04) // 4-bit color
     {
         liq_set_max_colors(attr, 16);
     }
-    else if(header->imageType != 0x05)
+    else if(header->paletteType != 0x05)
     {
-        printf("Unsupported image type 0x%02X.\n", header->imageType);
+        printf("Unsupported image type 0x%02X.\n", header->paletteType);
         return EXIT_FAILURE;
     }
 
@@ -299,11 +313,11 @@ int rgba_to_tcb(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
     liq_image *imagel = liq_image_create_rgba(attr, imageData->rgba, imageData->width, imageData->height, 0);
     liq_result *res = liq_quantize_image(attr, imagel);
 
-    if(header->imageType == 0x05)
+    if(header->paletteType == 0x05)
     {
         liq_write_remapped_image(res, imagel, image, imageData->height * imageData->width);
     }
-    else if (header->imageType == 0x04) // 4-bit color
+    else if (header->paletteType == 0x04) // 4-bit color
     {
         uint8_t *fulldata = malloc(imageData->width * imageData->height);
         liq_write_remapped_image(res, imagel, (uint32_t *)fulldata, imageData->width * imageData->height);
@@ -331,7 +345,7 @@ int rgba_to_tcb(uint8_t *tcbData, int tcbLength, rgbaImageData_t *imageData)
             alpha = (alpha >> 1) + 1; // scale down to 0-128 range
     }
 
-    if(header->imageType == 0x05) // Filter palette data
+    if(header->paletteType == 0x05) // Filter palette data
     {
         uint32_t *filtered = malloc(256 * 4);
         palette_filter((uint32_t *) palette, filtered, 256);
