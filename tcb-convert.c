@@ -152,6 +152,9 @@ int main(int argc, char *argv[])
         if(!tcbFile)
         {
             printf("Error opening %s.\n", tcbPath);
+            free(tcbData);
+            free(imageData.rgba);
+            return EXIT_FAILURE;
         }
 
         fwrite(tcbData, 1, tcbLength, tcbFile);
