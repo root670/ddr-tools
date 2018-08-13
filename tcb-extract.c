@@ -11,6 +11,39 @@
 	#define MKDIR(a)	mkdir(a, 0777);
 #endif
 
+int search_for_tcbs(const unsigned char *data, size_t dataLength, uint32_t *offsets, char *isCompressed)
+{
+    int numFound = 0;
+
+    for(unsigned int i = 0; i < dataLength; i++)
+    {
+        if(data[i] == 'T' && data[i+1] == 'C' && data[i+2] == 'B')
+        {
+            if(data[i+3] == 0
+                && data[i+4] == 0
+                && data[i+5] == 0
+                && data[i+6] == 0
+                && data[i+7] == 0
+                && data[i+8] == 0
+                && data[i+9] == 0
+                && data[i+10] == 0)
+            {
+                offsets[numFound] = i;
+                isCompressed[numFound] = 0;
+                numFound++;
+            }
+            else if(i > 0 && (data[i-1] == 0x10 || data[i-1] == 0x90))
+            {
+                offsets[numFound] = i - 1;
+                isCompressed[numFound] = 1;
+                numFound++;
+            }
+        }
+    }
+
+    return numFound;
+}
+
 int main(int argc, char *argv[])
 {
 	if(argc != 3)
@@ -28,11 +61,12 @@ int main(int argc, char *argv[])
 	FILE *compressed = fopen(argv[2], "rb");
 	if(!compressed)
 	{
-		printf("error opening %s\n", argv[2]);
+        printf("Error opening %s\n", argv[2]);
 		return EXIT_FAILURE;
 	}
 
 	/* Get input data */
+    printf("Loading %s...\n", argv[2]);
 	fseek(compressed, 0, SEEK_END);
 	int length = ftell(compressed);
 	fseek(compressed, 0, SEEK_SET);
@@ -41,8 +75,9 @@ int main(int argc, char *argv[])
 	fclose(compressed);
 
 	/* Search for TCBs */
-	uint32_t offsets[5000];
-	char isCompressed[5000] = {0};
+    printf("Searching for TCBs...\n");
+    uint32_t offsets[8000];
+    char isCompressed[8000] = {0};
 	int numEntries = 0;
 
 	// file has table
@@ -71,33 +106,7 @@ int main(int argc, char *argv[])
 	}
 	else // no table, need to search for TCBs
 	{
-		for(unsigned int i = 0; i < length; i+= 1)
-		{
-			if(compressedData[i] == 'T' && compressedData[i+1] == 'C' && compressedData[i+2] == 'B')
-			{
-				if(compressedData[i+3] == 0
-					&& compressedData[i+4] == 0
-					&& compressedData[i+5] == 0
-					&& compressedData[i+6] == 0
-					&& compressedData[i+7] == 0
-					&& compressedData[i+8] == 0
-					&& compressedData[i+9] == 0
-					&& compressedData[i+10] == 0)
-				{
-					printf("Uncompressed TCB at %08X\n", i);
-					offsets[numEntries] = i;
-					isCompressed[numEntries] = 0;
-					numEntries++;
-				}
-				else if(i > 0 && (compressedData[i-1] == 0x10 || compressedData[i-1] == 0x90))
-				{
-					printf("Compressed TCB at %08X\n", i);
-					offsets[numEntries] = i - 1;
-					isCompressed[numEntries] = 1;
-					numEntries++;
-				}
-			}
-		}
+        numEntries = search_for_tcbs(compressedData, length, offsets, isCompressed);
 	}
 
 	offsets[numEntries] = length;
@@ -124,6 +133,8 @@ int main(int argc, char *argv[])
 		if (offsets[i+1] == 0)
 			break;
 
+        printf("Extracting files: %04d/%d [%d%%]\r", i+1, numEntries, ((i+1)*100)/numEntries);
+
 		int len = offsets[i+1] - offsets[i];
 		char filename[100];
 		snprintf(filename, 100, "%08X.tcb", offsets[i]);
@@ -131,21 +142,18 @@ int main(int argc, char *argv[])
 
 		if(isCompressed[i])
 		{
-			printf("Decompressing %08X...\n", offsets[i]);
 			int decLen = decompress(compressedData + offsets[i], len, buffer, 1024*1024*10);
 			fwrite(buffer, decLen, 1, out);
 		}
 		else
 		{
-			printf("Extracting %08X...\n", offsets[i]);
 			fwrite(compressedData + offsets[i], len, 1, out);
 		}
 
 		fclose(out);
 	}
 
-	printf("%d entries\n", numEntries);
-
+    printf("\n");
 	free(compressedData);
 	free(buffer);
 
