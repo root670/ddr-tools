@@ -32,8 +32,8 @@ Convert TCB files to PNG images or inject PNG images back into TCB files. The ex
 ./tcb-convert <mode> <TCB file>
 ```
 Modes:
-* e - Convert TCB to PNG.
-* i - Inject PNG into TCB.
+* `e` - Convert TCB to PNG.
+* `i` - Inject PNG into TCB.
 
 ## filedata-tool.py
 Extract and create filedata.bin files.
@@ -42,8 +42,8 @@ Extract and create filedata.bin files.
 python3 filedata-tool.py <mode> <elf file> <filedata.bin> <directory>
 ```
 Modes:
-* extract - Extract the contents of `filedata.bin` to `directory`. All files referenced in the file table located in the game's `elf file` will be extracted in addition to "hidden" data missing from the file table. A CSV file will be created named `directory\fieldata.csv` containing IDs, offsets, and lengths found in the game's ELF, hidden file offsets and lengths, the exported filename, and a guessed description of the file contents to aid in modification.
-* create - Create `filedata.bin` using files in `directory`. The CSV created by the extraction mode is used to assemble a new file in the correct order and to update the file table in `elf file`.
+* `extract` - Extract the contents of `filedata.bin` to `directory`. All files referenced in the file table located in the game's `elf file` will be extracted in addition to "hidden" data missing from the file table. A CSV file will be created named `directory\fieldata.csv` containing IDs, offsets, and lengths found in the game's ELF, hidden file offsets and lengths, the exported filename, and a guessed description of the file contents to aid in modification.
+* `create` - Create `filedata.bin` using files in `directory`. The CSV created by the extraction mode is used to assemble a new file in the correct order and to update the file table in `elf file`.
 
 ## Tips
 * Don't modify the ids, offsets, or lengths in the CSV file created by the extraction mode. The filenames can be changed if desired.
