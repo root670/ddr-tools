@@ -148,6 +148,15 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
+        tcbFile = fopen(tcbPath, "wb");
+        if(!tcbFile)
+        {
+            printf("Error opening %s.\n", tcbPath);
+        }
+
+        fwrite(tcbData, 1, tcbLength, tcbFile);
+        fclose(tcbFile);
+
         printf("Success!\n");
     }
     else if(mode == 'e')
