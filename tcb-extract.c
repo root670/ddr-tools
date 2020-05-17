@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <unistd.h>
 #include "BemaniLZ/BemaniLZ.h"
 
 #if defined(_WIN32)
